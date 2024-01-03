@@ -15,7 +15,7 @@ struct Message {
 
 #[derive(Debug, Clone)]
 struct UserData {
-    _messages: Vec<Message>,
+    messages: Vec<Message>,
     user_name: String,
 }
 
@@ -64,12 +64,17 @@ async fn process(
                 if result.unwrap() == 0 {
                  break;
                 }
-
                 let message = Message {
                     message: line,
                     socket_address: *socket_address,
                 };
-                // send attempts to send a value to all active receivers
+                let mut unlocked_user_map = user_map.lock().await;
+                let user_data = unlocked_user_map.get_mut(socket_address).unwrap();
+                let messages = &mut user_data.messages;
+                messages.push(message.clone());
+                println!("{:?}", unlocked_user_map.get(socket_address));
+                // get a mut reference to the messages vector inside the struct
+                // send attempts to send:write!(, "") a value to all active receivers
                 let _subscribed_receivers = tx.send(message).unwrap();
             }
             // receive the broadcasted messages and write to the stream
@@ -108,7 +113,7 @@ async fn get_user_name(
     unlocked_user_map.insert(
         *socket_address,
         UserData {
-            _messages: vec![],
+            messages: vec![],
             user_name: line,
         },
     );
